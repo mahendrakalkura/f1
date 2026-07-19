@@ -19,12 +19,11 @@ const (
 )
 
 type data struct {
-	completedRounds int
-	constructors    []constructorRow
-	drivers         []driverRow
-	progression     progression
-	races           []raceInfo
-	season          string
+	constructors []constructorRow
+	drivers      []driverRow
+	progression  progression
+	races        []raceInfo
+	season       string
 }
 
 type constructorRow struct {
@@ -50,10 +49,7 @@ type driverRow struct {
 }
 
 type raceInfo struct {
-	circuit    string
-	date       string
 	fastestLap string
-	location   string
 	name       string
 	pole       string
 	results    []raceResult
@@ -80,11 +76,9 @@ type progression struct {
 
 type seriesRow struct {
 	cells       []matrixCell
-	cumulative  []float64
 	fastestLaps int
 	label       string
 	poles       int
-	team        string
 	total       float64
 	wins        int
 }
@@ -114,7 +108,6 @@ func buildData(
 	races mrDataResponse,
 	results []race,
 	qualifying []race,
-	roundDriverStandings []mrDataResponse,
 	roundConstructorStandings []mrDataResponse,
 ) *data {
 	stats := aggregateStats(results, qualifying)
@@ -182,18 +175,16 @@ func buildData(
 		constructors,
 		raceList,
 		resultsByRound,
-		roundDriverStandings,
 		roundConstructorStandings,
 		completedRounds,
 	)
 
 	model := &data{
-		completedRounds: completedRounds,
-		constructors:    constructors,
-		drivers:         drivers,
-		progression:     series,
-		races:           raceList,
-		season:          driverStandings.MRData.StandingsTable.Season,
+		constructors: constructors,
+		drivers:      drivers,
+		progression:  series,
+		races:        raceList,
+		season:       driverStandings.MRData.StandingsTable.Season,
 	}
 	return model
 }
@@ -251,11 +242,8 @@ func buildRaces(races mrDataResponse, results []race, stats seasonStats) ([]race
 	for _, item := range races.MRData.RaceTable.Races {
 		round := parseInt(item.Round)
 		info := &raceInfo{
-			circuit:  item.Circuit.CircuitName,
-			date:     item.Date,
-			location: fmt.Sprintf("%s, %s", item.Circuit.Location.Locality, item.Circuit.Location.Country),
-			name:     item.RaceName,
-			round:    round,
+			name:  item.RaceName,
+			round: round,
 		}
 		infoByRound[round] = info
 		order = append(order, round)
@@ -312,7 +300,6 @@ func buildProgression(
 	constructors []constructorRow,
 	races []raceInfo,
 	resultsByRound map[int]map[string]result,
-	roundDriverStandings []mrDataResponse,
 	roundConstructorStandings []mrDataResponse,
 	completedRounds int,
 ) progression {
@@ -323,25 +310,20 @@ func buildProgression(
 		}
 	}
 
-	driverPoints := roundPointsByEntity(roundDriverStandings, completedRounds, driverPointsFromList)
 	constructorPoints := roundPointsByEntity(roundConstructorStandings, completedRounds, constructorPointsFromList)
 
 	driverSeries := []seriesRow{}
 	for _, row := range drivers {
 		cells := make([]matrixCell, completedRounds)
-		cumulative := make([]float64, completedRounds)
 		for round := 1; round <= completedRounds; round++ {
-			cumulative[round-1] = driverPoints[round-1][row.id]
 			cells[round-1] = driverCell(resultsByRound[round][row.id])
 		}
 
 		series := seriesRow{
 			cells:       cells,
-			cumulative:  cumulative,
 			fastestLaps: row.fastestLaps,
 			label:       row.name,
 			poles:       row.poles,
-			team:        row.team,
 			total:       row.points,
 			wins:        row.wins,
 		}
@@ -351,16 +333,13 @@ func buildProgression(
 	constructorSeries := []seriesRow{}
 	for _, row := range constructors {
 		cells := make([]matrixCell, completedRounds)
-		cumulative := make([]float64, completedRounds)
 		for round := 1; round <= completedRounds; round++ {
 			value := constructorPoints[round-1][row.id]
-			cumulative[round-1] = value
 			cells[round-1] = matrixCell{category: categoryNone, text: formatPoints(value)}
 		}
 
 		series := seriesRow{
 			cells:       cells,
-			cumulative:  cumulative,
 			fastestLaps: row.fastestLaps,
 			label:       row.name,
 			poles:       row.poles,
@@ -403,14 +382,6 @@ func constructorPointsFromList(list standingsList) map[string]float64 {
 	points := map[string]float64{}
 	for _, standing := range list.ConstructorStandings {
 		points[standing.Constructor.ConstructorID] = parseFloat(standing.Points)
-	}
-	return points
-}
-
-func driverPointsFromList(list standingsList) map[string]float64 {
-	points := map[string]float64{}
-	for _, standing := range list.DriverStandings {
-		points[standing.Driver.DriverID] = parseFloat(standing.Points)
 	}
 	return points
 }

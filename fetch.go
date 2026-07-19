@@ -15,10 +15,10 @@ type fetcher struct {
 }
 
 // loadData fetches every endpoint needed for the TUI. The standings, races,
-// and per-round results, qualifying, and standings are downloaded in parallel
-// through a bounded worker pool, served from cache when fresh. Results and
-// qualifying are fetched per round rather than from the aggregate endpoints,
-// which lag a round behind and split rounds across pages.
+// and per-round results, qualifying, and constructor standings are downloaded
+// in parallel through a bounded worker pool, served from cache when fresh.
+// Results and qualifying are fetched per round rather than from the aggregate
+// endpoints, which lag a round behind and split rounds across pages.
 func loadData(store *cache, force bool) (*data, error) {
 	f := &fetcher{cache: store, force: force}
 
@@ -41,7 +41,6 @@ func loadData(store *cache, force bool) (*data, error) {
 
 	roundResults := make([]mrDataResponse, completedRounds)
 	roundQualifying := make([]mrDataResponse, completedRounds)
-	roundDriverStandings := make([]mrDataResponse, completedRounds)
 	roundConstructorStandings := make([]mrDataResponse, completedRounds)
 
 	rest := errgroup.Group{}
@@ -51,7 +50,6 @@ func loadData(store *cache, force bool) (*data, error) {
 		index := round - 1
 		rest.Go(func() error { return f.get(roundResultsURL(round), &roundResults[index]) })
 		rest.Go(func() error { return f.get(roundQualifyingURL(round), &roundQualifying[index]) })
-		rest.Go(func() error { return f.get(roundDriverStandingsURL(round), &roundDriverStandings[index]) })
 		rest.Go(func() error { return f.get(roundConstructorStandingsURL(round), &roundConstructorStandings[index]) })
 	}
 
@@ -76,7 +74,6 @@ func loadData(store *cache, force bool) (*data, error) {
 		races,
 		results,
 		qualifying,
-		roundDriverStandings,
 		roundConstructorStandings,
 	)
 	return model, nil

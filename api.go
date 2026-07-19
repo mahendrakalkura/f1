@@ -11,11 +11,8 @@ const pageLimit = 100
 
 type mrDataResponse struct {
 	MRData struct {
-		Limit          string         `json:"limit"`
-		Offset         string         `json:"offset"`
 		RaceTable      raceTable      `json:"RaceTable"`
 		StandingsTable standingsTable `json:"StandingsTable"`
-		Total          string         `json:"total"`
 	} `json:"MRData"`
 }
 
@@ -28,7 +25,6 @@ type standingsTable struct {
 type standingsList struct {
 	ConstructorStandings []constructorStanding `json:"ConstructorStandings"`
 	DriverStandings      []driverStanding      `json:"DriverStandings"`
-	Round                string                `json:"round"`
 }
 
 type constructorStanding struct {
@@ -47,19 +43,14 @@ type driverStanding struct {
 }
 
 type raceTable struct {
-	Races  []race `json:"Races"`
-	Round  string `json:"round"`
-	Season string `json:"season"`
+	Races []race `json:"Races"`
 }
 
 type race struct {
-	Circuit           circuit            `json:"Circuit"`
-	Date              string             `json:"date"`
 	QualifyingResults []qualifyingResult `json:"QualifyingResults"`
 	RaceName          string             `json:"raceName"`
 	Results           []result           `json:"Results"`
 	Round             string             `json:"round"`
-	Time              string             `json:"time"`
 }
 
 type result struct {
@@ -83,29 +74,15 @@ type fastestLap struct {
 	Rank string `json:"rank"`
 }
 
-type circuit struct {
-	CircuitID   string   `json:"circuitId"`
-	CircuitName string   `json:"circuitName"`
-	Location    location `json:"Location"`
-}
-
-type location struct {
-	Country  string `json:"country"`
-	Locality string `json:"locality"`
-}
-
 type constructor struct {
 	ConstructorID string `json:"constructorId"`
 	Name          string `json:"name"`
-	Nationality   string `json:"nationality"`
 }
 
 type driver struct {
-	Code        string `json:"code"`
-	DriverID    string `json:"driverId"`
-	FamilyName  string `json:"familyName"`
-	GivenName   string `json:"givenName"`
-	Nationality string `json:"nationality"`
+	DriverID   string `json:"driverId"`
+	FamilyName string `json:"familyName"`
+	GivenName  string `json:"givenName"`
 }
 
 func constructorStandingsURL() string {
@@ -122,10 +99,6 @@ func racesURL() string {
 
 func roundConstructorStandingsURL(round int) string {
 	return fmt.Sprintf("%s/%d/constructorStandings/?limit=%d", baseURL, round, pageLimit)
-}
-
-func roundDriverStandingsURL(round int) string {
-	return fmt.Sprintf("%s/%d/driverStandings/?limit=%d", baseURL, round, pageLimit)
 }
 
 func roundQualifyingURL(round int) string {

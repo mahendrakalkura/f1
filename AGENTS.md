@@ -8,7 +8,7 @@ Go terminal UI that displays the current Formula 1 season: driver standings, con
 
 - `api.go` - Jolpica JSON types and endpoint URL builders
 - `cache.go` - 24-hour file cache plus HTTP download with backoff retry
-- `fetch.go` - parallel fetch orchestration via errgroup (per-round results and qualifying)
+- `fetch.go` - parallel fetch orchestration via errgroup (per-round results, qualifying, and constructor standings)
 - `main.go` - entry point and `--force` flag
 - `model.go` - domain model, driver/team cross references, season totals, progression series
 - `progression.go` - progression legend and column-fit helper
