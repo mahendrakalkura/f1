@@ -28,13 +28,8 @@ type cache struct {
 }
 
 func newCache() (*cache, error) {
-	root, err := os.UserCacheDir()
-	if err != nil {
-		return nil, fmt.Errorf("resolve cache dir: %w", err)
-	}
-
-	dir := filepath.Join(root, "f1")
-	err = os.MkdirAll(dir, 0o755)
+	dir := ".cache"
+	err := os.MkdirAll(dir, 0o755)
 	if err != nil {
 		return nil, fmt.Errorf("create cache dir: %w", err)
 	}

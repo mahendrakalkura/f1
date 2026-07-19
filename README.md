@@ -16,17 +16,17 @@ Wins, poles, and fastest laps are aggregated across the season: wins from the st
 ## Requirements
 
 - Go 1.26 or newer to build.
+- `goimports` on `PATH` (`make build` runs it before compiling).
 - `golangci-lint` for `make lint`.
 - Network access on the first run (or after the cache expires).
 
 ## Usage
 
 ```sh
-make build      # compile to ./main
-make run        # run, using cached data when fresh
-make run force  # run and re-download, ignoring the cache
+make build      # goimports, go mod tidy, compile to ./main
+make run        # build then run, using cached data when fresh
+make run force  # build then run and re-download, ignoring the cache
 make lint       # golangci-lint run
-make clean      # remove the ./main binary
 ```
 
 Running the binary directly:
@@ -55,7 +55,7 @@ Running the binary directly:
 
 ## Caching
 
-Responses are stored under `$XDG_CACHE_HOME/f1` (typically `~/.cache/f1`), one file per request keyed by the URL hash. A cached file younger than 24 hours is served directly; otherwise it is re-fetched. Rate-limited (HTTP 429) and transient 5xx responses are retried with exponential backoff that honours any `Retry-After` header.
+Responses are stored under `./.cache` in the project directory (git-ignored), one file per request keyed by the URL hash. A cached file younger than 24 hours is served directly; otherwise it is re-fetched. Rate-limited (HTTP 429) and transient 5xx responses are retried with exponential backoff that honours any `Retry-After` header.
 
 ## Files
 

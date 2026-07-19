@@ -23,11 +23,12 @@ Go terminal UI that displays the current Formula 1 season: driver standings, con
 - github.com/charmbracelet/bubbles
 - github.com/charmbracelet/lipgloss
 - golang.org/x/sync/errgroup
+- goimports (run by `make build`)
 - golangci-lint (for `make lint`)
 
 ## Commands
 
-- `make build` - compile to `./main`
+- `make build` - run goimports and `go mod tidy`, then compile to `./main`
 - `make run` - run with cache; `make run force` re-downloads
 - `make lint` - `golangci-lint run`
 
