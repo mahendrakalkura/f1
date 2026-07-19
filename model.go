@@ -24,6 +24,7 @@ type data struct {
 	progression  progression
 	races        []raceInfo
 	season       string
+	sprints      []raceInfo
 }
 
 type constructorRow struct {
@@ -49,7 +50,10 @@ type driverRow struct {
 }
 
 type raceInfo struct {
+	circuit    string
+	date       string
 	fastestLap string
+	location   string
 	name       string
 	pole       string
 	results    []raceResult
@@ -68,10 +72,16 @@ type raceResult struct {
 }
 
 type progression struct {
+	chart        []chartRow
 	constructors []seriesRow
 	drivers      []seriesRow
 	raceLabels   []string
 	rounds       int
+}
+
+type chartRow struct {
+	label  string
+	points []float64
 }
 
 type seriesRow struct {
@@ -108,6 +118,7 @@ func buildData(
 	races mrDataResponse,
 	results []race,
 	qualifying []race,
+	sprints []race,
 	roundConstructorStandings []mrDataResponse,
 ) *data {
 	stats := aggregateStats(results, qualifying)
@@ -159,6 +170,7 @@ func buildData(
 	}
 
 	raceList, resultsByRound := buildRaces(races, results, stats)
+	sprintList, sprintByRound := buildSprints(races, sprints)
 
 	// The standings can report a round ahead of the results endpoint, so the
 	// number of scored rounds is taken from the races that actually returned
@@ -175,6 +187,7 @@ func buildData(
 		constructors,
 		raceList,
 		resultsByRound,
+		sprintByRound,
 		roundConstructorStandings,
 		completedRounds,
 	)
@@ -185,6 +198,7 @@ func buildData(
 		progression:  series,
 		races:        raceList,
 		season:       driverStandings.MRData.StandingsTable.Season,
+		sprints:      sprintList,
 	}
 	return model
 }
@@ -237,16 +251,9 @@ func aggregateStats(results []race, qualifying []race) seasonStats {
 // names, keyed by round, returning the ordered list and a lookup by driver.
 func buildRaces(races mrDataResponse, results []race, stats seasonStats) ([]raceInfo, map[int]map[string]result) {
 	infoByRound := map[int]*raceInfo{}
-	order := []int{}
-
-	for _, item := range races.MRData.RaceTable.Races {
-		round := parseInt(item.Round)
-		info := &raceInfo{
-			name:  item.RaceName,
-			round: round,
-		}
-		infoByRound[round] = info
-		order = append(order, round)
+	for round, meta := range scheduleByRound(races) {
+		info := meta
+		infoByRound[round] = &info
 	}
 
 	resultsByRound := map[int]map[string]result{}
@@ -257,7 +264,6 @@ func buildRaces(races mrDataResponse, results []race, stats seasonStats) ([]race
 		if !ok {
 			info = &raceInfo{name: item.RaceName, round: round}
 			infoByRound[round] = info
-			order = append(order, round)
 		}
 
 		byDriver := map[string]result{}
@@ -284,12 +290,84 @@ func buildRaces(races mrDataResponse, results []race, stats seasonStats) ([]race
 		info.winnerTeam = stats.winnerTeamByRound[round]
 	}
 
-	sort.Ints(order)
-	list := []raceInfo{}
-	for _, round := range order {
+	rounds := make([]int, 0, len(infoByRound))
+	for round := range infoByRound {
+		rounds = append(rounds, round)
+	}
+	sort.Ints(rounds)
+
+	list := make([]raceInfo, 0, len(rounds))
+	for _, round := range rounds {
 		list = append(list, *infoByRound[round])
 	}
 	return list, resultsByRound
+}
+
+// buildSprints assembles the sprint race list from per-round sprint results,
+// reusing the schedule metadata for the round's circuit and date. Rounds
+// without a sprint are skipped. Also returns sprint results keyed by driver
+// so sprint points can feed the progression chart.
+func buildSprints(races mrDataResponse, sprints []race) ([]raceInfo, map[int]map[string]result) {
+	meta := scheduleByRound(races)
+
+	list := []raceInfo{}
+	byRound := map[int]map[string]result{}
+	for _, item := range sprints {
+		if len(item.SprintResults) == 0 {
+			continue
+		}
+		round := parseInt(item.Round)
+
+		info := meta[round]
+		if info.name == "" {
+			info.name = item.RaceName
+			info.round = round
+		}
+
+		byDriver := map[string]result{}
+		for _, entry := range item.SprintResults {
+			byDriver[entry.Driver.DriverID] = entry
+			if entry.Position == "1" {
+				info.winner = driverName(entry.Driver)
+				info.winnerTeam = entry.Constructor.Name
+			}
+			if entry.FastestLap.Rank == "1" {
+				info.fastestLap = driverName(entry.Driver)
+			}
+
+			row := raceResult{
+				driver:   driverName(entry.Driver),
+				grid:     parseInt(entry.Grid),
+				points:   parseFloat(entry.Points),
+				position: parseInt(entry.Position),
+				status:   entry.Status,
+				team:     entry.Constructor.Name,
+			}
+			info.results = append(info.results, row)
+		}
+		byRound[round] = byDriver
+		list = append(list, info)
+	}
+
+	sort.Slice(list, func(i, j int) bool { return list[i].round < list[j].round })
+	return list, byRound
+}
+
+// scheduleByRound extracts circuit, date, and name metadata per round from
+// the season schedule.
+func scheduleByRound(races mrDataResponse) map[int]raceInfo {
+	meta := map[int]raceInfo{}
+	for _, item := range races.MRData.RaceTable.Races {
+		round := parseInt(item.Round)
+		meta[round] = raceInfo{
+			circuit:  item.Circuit.CircuitName,
+			date:     item.Date,
+			location: fmt.Sprintf("%s, %s", item.Circuit.Location.Locality, item.Circuit.Location.Country),
+			name:     item.RaceName,
+			round:    round,
+		}
+	}
+	return meta
 }
 
 // buildProgression assembles the Wikipedia-style matrix rows for drivers
@@ -300,6 +378,7 @@ func buildProgression(
 	constructors []constructorRow,
 	races []raceInfo,
 	resultsByRound map[int]map[string]result,
+	sprintByRound map[int]map[string]result,
 	roundConstructorStandings []mrDataResponse,
 	completedRounds int,
 ) progression {
@@ -350,12 +429,35 @@ func buildProgression(
 	}
 
 	result := progression{
+		chart:        buildChart(drivers, resultsByRound, sprintByRound, completedRounds),
 		constructors: constructorSeries,
 		drivers:      driverSeries,
 		raceLabels:   labels,
 		rounds:       completedRounds,
 	}
 	return result
+}
+
+// buildChart derives each driver's cumulative championship points per round
+// from race and sprint results, in standings order.
+func buildChart(
+	drivers []driverRow,
+	resultsByRound map[int]map[string]result,
+	sprintByRound map[int]map[string]result,
+	rounds int,
+) []chartRow {
+	rows := []chartRow{}
+	for _, driver := range drivers {
+		points := make([]float64, rounds)
+		running := 0.0
+		for round := 1; round <= rounds; round++ {
+			running += parseFloat(resultsByRound[round][driver.id].Points)
+			running += parseFloat(sprintByRound[round][driver.id].Points)
+			points[round-1] = running
+		}
+		rows = append(rows, chartRow{label: driver.name, points: points})
+	}
+	return rows
 }
 
 func roundPointsByEntity(

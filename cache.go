@@ -62,7 +62,12 @@ func (c *cache) get(url string, force bool) ([]byte, error) {
 
 	body, err := c.download(url)
 	if err != nil {
-		return nil, err
+		stale, readErr := os.ReadFile(file)
+		if readErr != nil {
+			return nil, err
+		}
+		fmt.Fprintf(os.Stderr, "f1: %v; serving stale cache\n", err)
+		return stale, nil
 	}
 
 	err = os.WriteFile(file, body, 0o644)

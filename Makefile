@@ -1,4 +1,4 @@
-.PHONY: build force lint run tidy
+.PHONY: build force lint run test
 
 BINARY := main
 
@@ -15,3 +15,6 @@ lint:
 
 run: build
 	./$(BINARY) $(if $(filter force,$(MAKECMDGOALS)),--force,)
+
+test:
+	go test ./...

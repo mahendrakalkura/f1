@@ -10,17 +10,19 @@ import (
 const fetchConcurrency = 4
 
 type fetcher struct {
-	cache *cache
-	force bool
+	cache  *cache
+	force  bool
+	season string
 }
 
 // loadData fetches every endpoint needed for the TUI. The standings, races,
-// and per-round results, qualifying, and constructor standings are downloaded
-// in parallel through a bounded worker pool, served from cache when fresh.
-// Results and qualifying are fetched per round rather than from the aggregate
-// endpoints, which lag a round behind and split rounds across pages.
-func loadData(store *cache, force bool) (*data, error) {
-	f := &fetcher{cache: store, force: force}
+// and per-round results, qualifying, sprints, and constructor standings are
+// downloaded in parallel through a bounded worker pool, served from cache
+// when fresh. Results and qualifying are fetched per round rather than from
+// the aggregate endpoints, which lag a round behind and split rounds across
+// pages.
+func loadData(store *cache, force bool, season string) (*data, error) {
+	f := &fetcher{cache: store, force: force, season: season}
 
 	driverStandings := mrDataResponse{}
 	constructorStandings := mrDataResponse{}
@@ -28,9 +30,9 @@ func loadData(store *cache, force bool) (*data, error) {
 
 	head := errgroup.Group{}
 	head.SetLimit(fetchConcurrency)
-	head.Go(func() error { return f.get(driverStandingsURL(), &driverStandings) })
-	head.Go(func() error { return f.get(constructorStandingsURL(), &constructorStandings) })
-	head.Go(func() error { return f.get(racesURL(), &races) })
+	head.Go(func() error { return f.get(driverStandingsURL(f.season), &driverStandings) })
+	head.Go(func() error { return f.get(constructorStandingsURL(f.season), &constructorStandings) })
+	head.Go(func() error { return f.get(racesURL(f.season), &races) })
 
 	err := head.Wait()
 	if err != nil {
@@ -41,6 +43,7 @@ func loadData(store *cache, force bool) (*data, error) {
 
 	roundResults := make([]mrDataResponse, completedRounds)
 	roundQualifying := make([]mrDataResponse, completedRounds)
+	roundSprints := make([]mrDataResponse, completedRounds)
 	roundConstructorStandings := make([]mrDataResponse, completedRounds)
 
 	rest := errgroup.Group{}
@@ -48,9 +51,12 @@ func loadData(store *cache, force bool) (*data, error) {
 
 	for round := 1; round <= completedRounds; round++ {
 		index := round - 1
-		rest.Go(func() error { return f.get(roundResultsURL(round), &roundResults[index]) })
-		rest.Go(func() error { return f.get(roundQualifyingURL(round), &roundQualifying[index]) })
-		rest.Go(func() error { return f.get(roundConstructorStandingsURL(round), &roundConstructorStandings[index]) })
+		rest.Go(func() error { return f.get(roundResultsURL(f.season, round), &roundResults[index]) })
+		rest.Go(func() error { return f.get(roundQualifyingURL(f.season, round), &roundQualifying[index]) })
+		rest.Go(func() error { return f.get(roundSprintURL(f.season, round), &roundSprints[index]) })
+		rest.Go(func() error {
+			return f.get(roundConstructorStandingsURL(f.season, round), &roundConstructorStandings[index])
+		})
 	}
 
 	err = rest.Wait()
@@ -68,12 +74,18 @@ func loadData(store *cache, force bool) (*data, error) {
 		qualifying = append(qualifying, page.MRData.RaceTable.Races...)
 	}
 
+	sprints := []race{}
+	for _, page := range roundSprints {
+		sprints = append(sprints, page.MRData.RaceTable.Races...)
+	}
+
 	model := buildData(
 		driverStandings,
 		constructorStandings,
 		races,
 		results,
 		qualifying,
+		sprints,
 		roundConstructorStandings,
 	)
 	return model, nil

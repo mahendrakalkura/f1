@@ -16,6 +16,7 @@ const (
 	tabDrivers tab = iota
 	tabConstructors
 	tabRaces
+	tabSprints
 	tabProgression
 )
 
@@ -24,13 +25,14 @@ type progMode int
 const (
 	modeDrivers progMode = iota
 	modeConstructors
+	modeChart
 )
 
 const chromeHeight = 6
 
 const raceRoundWidth = 5
 
-var tabTitles = []string{"Drivers", "Constructors", "Races", "Progression"}
+var tabTitles = []string{"Drivers", "Constructors", "Races", "Sprints", "Progression"}
 
 type appModel struct {
 	active           tab
@@ -41,11 +43,19 @@ type appModel struct {
 	progMode         progMode
 	progOffset       int
 	progView         viewport.Model
-	racesTable       table.Model
-	raceSelected     int
+	races            raceList
 	ready            bool
-	resultsView      viewport.Model
+	sprints          raceList
 	width            int
+}
+
+// raceList bundles the shared pieces of the Races and Sprints tabs: a table
+// of rounds plus a viewport showing one round's full results.
+type raceList struct {
+	races    []raceInfo
+	selected int
+	table    table.Model
+	view     viewport.Model
 }
 
 func newAppModel(model *data) appModel {
@@ -56,11 +66,19 @@ func newAppModel(model *data) appModel {
 		driversView:      viewport.New(0, 0),
 		progMode:         modeDrivers,
 		progView:         viewport.New(0, 0),
-		racesTable:       newRacesTable(model),
-		raceSelected:     -1,
-		resultsView:      viewport.New(0, 0),
+		races:            newRaceList(model.races, newRacesTable(model.races)),
+		sprints:          newRaceList(model.sprints, newSprintsTable(model.sprints)),
 	}
 	return application
+}
+
+func newRaceList(races []raceInfo, table table.Model) raceList {
+	return raceList{
+		races:    races,
+		selected: -1,
+		table:    table,
+		view:     viewport.New(0, 0),
+	}
 }
 
 func (m appModel) Init() tea.Cmd {
@@ -111,7 +129,14 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 
 	case tabRaces:
-		return m.handleRacesKey(msg)
+		list, cmd := handleRaceListKey(m.races, msg)
+		m.races = list
+		return m, cmd
+
+	case tabSprints:
+		list, cmd := handleRaceListKey(m.sprints, msg)
+		m.sprints = list
+		return m, cmd
 
 	case tabProgression:
 		return m.handleProgressionKey(msg)
@@ -120,31 +145,31 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m appModel) handleRacesKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.raceSelected >= 0 {
+func handleRaceListKey(list raceList, msg tea.KeyMsg) (raceList, tea.Cmd) {
+	if list.selected >= 0 {
 		if msg.String() == "esc" {
-			m.raceSelected = -1
-			return m, nil
+			list.selected = -1
+			return list, nil
 		}
 
-		updated, cmd := m.resultsView.Update(msg)
-		m.resultsView = updated
-		return m, cmd
+		updated, cmd := list.view.Update(msg)
+		list.view = updated
+		return list, cmd
 	}
 
 	if msg.String() == "enter" {
-		index := m.racesTable.Cursor()
-		if index >= 0 && index < len(m.data.races) {
-			m.raceSelected = index
-			m.resultsView.SetContent(renderResultsTable(m.data.races[index]))
-			m.resultsView.GotoTop()
+		index := list.table.Cursor()
+		if index >= 0 && index < len(list.races) {
+			list.selected = index
+			list.view.SetContent(renderResultsTable(list.races[index]))
+			list.view.GotoTop()
 		}
-		return m, nil
+		return list, nil
 	}
 
-	updated, cmd := m.racesTable.Update(msg)
-	m.racesTable = updated
-	return m, cmd
+	updated, cmd := list.table.Update(msg)
+	list.table = updated
+	return list, cmd
 }
 
 func (m appModel) handleProgressionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -157,6 +182,12 @@ func (m appModel) handleProgressionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "c":
 		m.progMode = modeConstructors
+		m.progOffset = 0
+		m.refreshProgression()
+		return m, nil
+
+	case "p":
+		m.progMode = modeChart
 		m.progOffset = 0
 		m.refreshProgression()
 		return m, nil
@@ -217,32 +248,73 @@ func (m appModel) body() string {
 		return m.constructorsView.View()
 
 	case tabRaces:
-		if m.raceSelected >= 0 {
-			heading := titleStyle.Render(m.data.races[m.raceSelected].name)
-			return fmt.Sprintf("%s\n%s", heading, m.resultsView.View())
-		}
-		return m.racesTable.View()
+		return m.races.body()
+
+	case tabSprints:
+		return m.sprints.body()
 
 	case tabProgression:
-		return fmt.Sprintf("%s\n%s", matrixLegend(), m.progView.View())
+		return fmt.Sprintf("%s\n%s", m.progressionHeader(), m.progView.View())
 	}
 
 	return ""
 }
 
+func (l raceList) body() string {
+	if l.selected < 0 {
+		return l.table.View()
+	}
+
+	race := l.races[l.selected]
+	heading := titleStyle.Render(race.name)
+	meta := helpStyle.Render(raceMeta(race))
+	return fmt.Sprintf("%s\n%s\n%s", heading, meta, l.view.View())
+}
+
+func raceMeta(race raceInfo) string {
+	parts := []string{}
+	if race.date != "" {
+		parts = append(parts, race.date)
+	}
+	if race.circuit != "" {
+		parts = append(parts, race.circuit)
+	}
+	if race.location != "" {
+		parts = append(parts, race.location)
+	}
+	return strings.Join(parts, " | ")
+}
+
+func (m appModel) progressionHeader() string {
+	switch m.progMode {
+	case modeConstructors:
+		return helpStyle.Render("Cumulative points per round")
+	case modeChart:
+		return helpStyle.Render("Cumulative points per round, scaled to the leader's total")
+	}
+	return matrixLegend()
+}
+
 func (m appModel) help() string {
 	switch m.active {
 	case tabRaces:
-		if m.raceSelected >= 0 {
-			return "esc back | up/down scroll | tab switch | q quit"
-		}
-		return "enter results | up/down move | tab switch | q quit"
+		return raceListHelp(m.races.selected)
+
+	case tabSprints:
+		return raceListHelp(m.sprints.selected)
 
 	case tabProgression:
-		return "d drivers | c constructors | left/right scroll | up/down scroll | tab switch | q quit"
+		return "d drivers | c constructors | p points | left/right scroll | up/down scroll | tab switch | q quit"
 	}
 
 	return "up/down scroll | tab/shift+tab switch | q quit"
+}
+
+func raceListHelp(selected int) string {
+	if selected >= 0 {
+		return "esc back | up/down scroll | tab switch | q quit"
+	}
+	return "enter results | up/down move | tab switch | q quit"
 }
 
 func (m *appModel) resize() {
@@ -260,16 +332,25 @@ func (m *appModel) resize() {
 	m.progView.Height = height - 1
 	m.refreshProgression()
 
-	m.resultsView.Width = m.width
-	m.resultsView.Height = height - 1
-	if m.raceSelected >= 0 {
-		m.resultsView.SetContent(renderResultsTable(m.data.races[m.raceSelected]))
-	}
+	m.resizeRaceList(&m.races)
+	m.resizeRaceList(&m.sprints)
+}
 
-	m.racesTable.SetHeight(height)
+func (m *appModel) resizeRaceList(list *raceList) {
+	list.view.Width = m.width
+	list.view.Height = m.tableHeight() - 2
+	if list.selected >= 0 {
+		list.view.SetContent(renderResultsTable(list.races[list.selected]))
+	}
+	list.table.SetHeight(m.tableHeight())
 }
 
 func (m *appModel) refreshProgression() {
+	if m.progMode == modeChart {
+		m.progView.SetContent(renderChart(m.data.progression.chart, m.width))
+		return
+	}
+
 	series := m.progressionSeries()
 	rounds := m.data.progression.rounds - m.progOffset
 	visible := visibleColumns(m.width, progLabelWidth(series))
@@ -286,6 +367,10 @@ func (m *appModel) refreshProgression() {
 }
 
 func (m appModel) maxProgOffset() int {
+	if m.progMode == modeChart {
+		return 0
+	}
+
 	visible := visibleColumns(m.width, progLabelWidth(m.progressionSeries()))
 	maximum := m.data.progression.rounds - visible
 	if maximum < 0 {
@@ -310,9 +395,13 @@ func (m appModel) tableHeight() int {
 }
 
 func (m *appModel) syncFocus() {
-	m.racesTable.Blur()
+	m.races.table.Blur()
+	m.sprints.table.Blur()
 	if m.active == tabRaces {
-		m.racesTable.Focus()
+		m.races.table.Focus()
+	}
+	if m.active == tabSprints {
+		m.sprints.table.Focus()
 	}
 }
 
@@ -326,7 +415,40 @@ func progLabelWidth(series []seriesRow) int {
 	return width
 }
 
-func newRacesTable(model *data) table.Model {
+func newRacesTable(races []raceInfo) table.Model {
+	headers := []string{"Round", "Grand Prix", "Winner", "Constructor", "Pole", "Fastest Lap"}
+	rows := make([]table.Row, 0, len(races))
+	for _, race := range races {
+		rows = append(rows, table.Row{
+			fmt.Sprintf("%*d", raceRoundWidth, race.round),
+			race.name,
+			race.winner,
+			race.winnerTeam,
+			race.pole,
+			race.fastestLap,
+		})
+	}
+	return racesTableModel(headers, rows)
+}
+
+func newSprintsTable(races []raceInfo) table.Model {
+	headers := []string{"Round", "Grand Prix", "Winner", "Constructor", "Fastest Lap"}
+	rows := make([]table.Row, 0, len(races))
+	for _, race := range races {
+		rows = append(rows, table.Row{
+			fmt.Sprintf("%*d", raceRoundWidth, race.round),
+			race.name,
+			race.winner,
+			race.winnerTeam,
+			race.fastestLap,
+		})
+	}
+	return racesTableModel(headers, rows)
+}
+
+// racesTableModel sizes each column to its widest value so nothing is
+// truncated with an ellipsis; bubbles tables use fixed column widths.
+func racesTableModel(headers []string, rows []table.Row) table.Model {
 	styles := table.DefaultStyles()
 	styles.Header = styles.Header.
 		Bold(true).
@@ -338,22 +460,6 @@ func newRacesTable(model *data) table.Model {
 		Bold(true).
 		Foreground(lipgloss.Color("230"))
 
-	headers := []string{"Round", "Grand Prix", "Winner", "Constructor", "Pole", "Fastest Lap"}
-
-	rows := make([]table.Row, 0, len(model.races))
-	for _, race := range model.races {
-		rows = append(rows, table.Row{
-			fmt.Sprintf("%*d", raceRoundWidth, race.round),
-			race.name,
-			race.winner,
-			race.winnerTeam,
-			race.pole,
-			race.fastestLap,
-		})
-	}
-
-	// Size each column to its widest value so nothing is truncated with an
-	// ellipsis; bubbles tables use fixed column widths.
 	widths := make([]int, len(headers))
 	for index, header := range headers {
 		widths[index] = lipgloss.Width(header)

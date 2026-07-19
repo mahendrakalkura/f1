@@ -9,6 +9,9 @@ var (
 			Foreground(lipgloss.Color("230")).
 			Padding(0, 2)
 
+	chartStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("34"))
+
 	inactiveTabStyle = lipgloss.NewStyle().
 				Foreground(lipgloss.Color("245")).
 				Padding(0, 2)

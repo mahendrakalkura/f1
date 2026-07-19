@@ -5,7 +5,7 @@ import (
 	"strconv"
 )
 
-const baseURL = "https://api.jolpi.ca/ergast/f1/current"
+const baseURL = "https://api.jolpi.ca/ergast/f1"
 
 const pageLimit = 100
 
@@ -47,10 +47,13 @@ type raceTable struct {
 }
 
 type race struct {
+	Circuit           circuit            `json:"Circuit"`
+	Date              string             `json:"date"`
 	QualifyingResults []qualifyingResult `json:"QualifyingResults"`
 	RaceName          string             `json:"raceName"`
 	Results           []result           `json:"Results"`
 	Round             string             `json:"round"`
+	SprintResults     []result           `json:"SprintResults"`
 }
 
 type result struct {
@@ -74,6 +77,16 @@ type fastestLap struct {
 	Rank string `json:"rank"`
 }
 
+type circuit struct {
+	CircuitName string   `json:"circuitName"`
+	Location    location `json:"Location"`
+}
+
+type location struct {
+	Country  string `json:"country"`
+	Locality string `json:"locality"`
+}
+
 type constructor struct {
 	ConstructorID string `json:"constructorId"`
 	Name          string `json:"name"`
@@ -85,28 +98,32 @@ type driver struct {
 	GivenName  string `json:"givenName"`
 }
 
-func constructorStandingsURL() string {
-	return fmt.Sprintf("%s/constructorStandings/?limit=%d", baseURL, pageLimit)
+func constructorStandingsURL(season string) string {
+	return fmt.Sprintf("%s/%s/constructorStandings/?limit=%d", baseURL, season, pageLimit)
 }
 
-func driverStandingsURL() string {
-	return fmt.Sprintf("%s/driverStandings/?limit=%d", baseURL, pageLimit)
+func driverStandingsURL(season string) string {
+	return fmt.Sprintf("%s/%s/driverStandings/?limit=%d", baseURL, season, pageLimit)
 }
 
-func racesURL() string {
-	return fmt.Sprintf("%s/races/?limit=%d", baseURL, pageLimit)
+func racesURL(season string) string {
+	return fmt.Sprintf("%s/%s/races/?limit=%d", baseURL, season, pageLimit)
 }
 
-func roundConstructorStandingsURL(round int) string {
-	return fmt.Sprintf("%s/%d/constructorStandings/?limit=%d", baseURL, round, pageLimit)
+func roundConstructorStandingsURL(season string, round int) string {
+	return fmt.Sprintf("%s/%s/%d/constructorStandings/?limit=%d", baseURL, season, round, pageLimit)
 }
 
-func roundQualifyingURL(round int) string {
-	return fmt.Sprintf("%s/%d/qualifying/?limit=%d", baseURL, round, pageLimit)
+func roundQualifyingURL(season string, round int) string {
+	return fmt.Sprintf("%s/%s/%d/qualifying/?limit=%d", baseURL, season, round, pageLimit)
 }
 
-func roundResultsURL(round int) string {
-	return fmt.Sprintf("%s/%d/results/?limit=%d", baseURL, round, pageLimit)
+func roundResultsURL(season string, round int) string {
+	return fmt.Sprintf("%s/%s/%d/results/?limit=%d", baseURL, season, round, pageLimit)
+}
+
+func roundSprintURL(season string, round int) string {
+	return fmt.Sprintf("%s/%s/%d/sprint/?limit=%d", baseURL, season, round, pageLimit)
 }
 
 func parseFloat(text string) float64 {
@@ -123,4 +140,13 @@ func parseInt(text string) int {
 		return 0
 	}
 	return value
+}
+
+// seasonSlug maps the --season flag to an API path segment; zero or negative
+// means the API's rolling "current" season alias.
+func seasonSlug(year int) string {
+	if year <= 0 {
+		return "current"
+	}
+	return strconv.Itoa(year)
 }

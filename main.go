@@ -10,6 +10,7 @@ import (
 
 func main() {
 	force := flag.Bool("force", false, "force refresh cached data")
+	year := flag.Int("season", 0, "season year (default: current)")
 	flag.Parse()
 
 	store, err := newCache()
@@ -18,8 +19,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintln(os.Stderr, "f1: loading season data...")
-	model, err := loadData(store, *force)
+	season := seasonSlug(*year)
+	model, err := loadData(store, *force, season)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "f1: %v\n", err)
 		os.Exit(1)
