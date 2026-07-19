@@ -50,7 +50,7 @@ Running the binary directly:
 | up / down        | Move within the Races list, or scroll          |
 | enter            | On Races or Sprints, show that round's result  |
 | esc              | Back from a result to the list                 |
-| d / c / p        | Progression: drivers / constructors / chart    |
+| p                | Progression: points chart toggle               |
 | left/right       | Progression: scroll round columns              |
 | q / ctrl+c       | Quit                                           |
 +------------------+------------------------------------------------+
