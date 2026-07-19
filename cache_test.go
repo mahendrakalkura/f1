@@ -145,6 +145,42 @@ func TestCachePath(t *testing.T) {
 	}
 }
 
+func TestCachePrune(t *testing.T) {
+	dir := t.TempDir()
+	store := &cache{dir: dir}
+
+	fresh := dir + "/fresh.json"
+	if err := os.WriteFile(fresh, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	old := dir + "/old.json"
+	if err := os.WriteFile(old, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	stale := time.Now().Add(-cacheMaxAge - time.Hour)
+	if err := os.Chtimes(old, stale, stale); err != nil {
+		t.Fatal(err)
+	}
+
+	subdir := dir + "/nested"
+	if err := os.Mkdir(subdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	store.prune()
+
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Error("old file should be pruned")
+	}
+	if _, err := os.Stat(fresh); err != nil {
+		t.Error("fresh file should be kept")
+	}
+	if _, err := os.Stat(subdir); err != nil {
+		t.Error("directories should be left alone")
+	}
+}
+
 func TestDownloadRetries(t *testing.T) {
 	hits := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

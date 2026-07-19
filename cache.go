@@ -14,6 +14,8 @@ import (
 
 const cacheTTL = 24 * time.Hour
 
+const cacheMaxAge = 30 * 24 * time.Hour
+
 const httpTimeout = 30 * time.Second
 
 const retryBase = 500 * time.Millisecond
@@ -45,6 +47,38 @@ func (c *cache) path(url string) string {
 	sum := sha256.Sum256([]byte(url))
 	name := fmt.Sprintf("%x.json", sum)
 	return filepath.Join(c.dir, name)
+}
+
+// prune removes cache files older than cacheMaxAge. It is meant to run in a
+// goroutine at startup; problems are reported to stderr without failing.
+func (c *cache) prune() {
+	cutoff := time.Now().Add(-cacheMaxAge)
+
+	entries, err := os.ReadDir(c.dir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "f1: prune cache: %v\n", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		info, err := entry.Info()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "f1: prune cache: %v\n", err)
+			continue
+		}
+		if info.ModTime().After(cutoff) {
+			continue
+		}
+
+		err = os.Remove(filepath.Join(c.dir, entry.Name()))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "f1: prune cache: %v\n", err)
+		}
+	}
 }
 
 func (c *cache) get(url string, force bool) ([]byte, error) {

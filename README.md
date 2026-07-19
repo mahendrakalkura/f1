@@ -58,7 +58,7 @@ Running the binary directly:
 
 ## Caching
 
-Responses are stored under `./.cache` in the project directory (git-ignored), one file per request keyed by the URL hash. A cached file younger than 24 hours is served directly; otherwise it is re-fetched. When re-fetching fails, the stale file is served with a warning. Rate-limited (HTTP 429) and transient 5xx responses are retried with exponential backoff that honours any `Retry-After` header.
+Responses are stored under `./.cache` in the project directory (git-ignored), one file per request keyed by the URL hash. A cached file younger than 24 hours is served directly; otherwise it is re-fetched. When re-fetching fails, the stale file is served with a warning. Files older than 30 days are deleted in the background on every run. Rate-limited (HTTP 429) and transient 5xx responses are retried with exponential backoff that honours any `Retry-After` header.
 
 ## Files
 

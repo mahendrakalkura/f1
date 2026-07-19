@@ -18,6 +18,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "f1: %v\n", err)
 		os.Exit(1)
 	}
+	go store.prune()
 
 	season := seasonSlug(*year)
 	model, err := loadData(store, *force, season)
