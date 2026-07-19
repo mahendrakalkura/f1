@@ -229,6 +229,25 @@ func TestBuildDataSprints(t *testing.T) {
 	}
 }
 
+func TestChartConstructorPositions(t *testing.T) {
+	model := fixtureData()
+	positions := model.progression.chartConstructorPositions
+	if len(positions) != 2 {
+		t.Fatalf("got %d position rows, want 2", len(positions))
+	}
+
+	leader := positions[0]
+	if leader.label != "Red Bull" {
+		t.Errorf("got leader %q, want %q", leader.label, "Red Bull")
+	}
+	// Red Bull is position 1 in both rounds of the fixture.
+	for i, pos := range leader.points {
+		if pos != 1 {
+			t.Errorf("leader.points[%d] = %v, want 1", i, pos)
+		}
+	}
+}
+
 func TestCellText(t *testing.T) {
 	cases := []struct {
 		positionText string

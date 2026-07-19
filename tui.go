@@ -278,6 +278,9 @@ func raceMeta(race raceInfo) string {
 
 func (m appModel) progressionHeader() string {
 	if m.progChart {
+		if m.progMode == modeConstructors {
+			return helpStyle.Render("Championship position per round (1-9, A=10 B=11 …)")
+		}
 		return helpStyle.Render("Cumulative points per round, scaled to the leader's total")
 	}
 	switch m.progMode {
@@ -339,11 +342,11 @@ func (m *appModel) resizeRaceList(list *raceList) {
 
 func (m *appModel) refreshProgression() {
 	if m.progChart {
-		chart := m.data.progression.chart
 		if m.progMode == modeConstructors {
-			chart = m.data.progression.chartConstructors
+			m.progView.SetContent(renderPositionChart(m.data.progression.chartConstructorPositions, m.width))
+			return
 		}
-		m.progView.SetContent(renderChart(chart, m.width))
+		m.progView.SetContent(renderChart(m.data.progression.chart, m.width))
 		return
 	}
 

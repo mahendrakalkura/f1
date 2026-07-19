@@ -92,6 +92,72 @@ func sparkline(points []float64, width int, maximum float64) string {
 	return line.String()
 }
 
+// posChar maps a championship position (1-based) to a single display
+// character. Positions 1–9 use digits; 10–15 use letters A–F.
+func posChar(position int) byte {
+	if position < 10 {
+		return byte('0' + position)
+	}
+	if position < 16 {
+		return byte('A' + position - 10)
+	}
+	return '?'
+}
+
+// renderPositionChart draws each constructor's championship position after
+// every round as a compact digit track, downsampled to fit the terminal width.
+func renderPositionChart(rows []chartRow, width int) string {
+	if len(rows) == 0 || len(rows[0].points) == 0 {
+		return "No completed rounds yet."
+	}
+
+	labelWidth := 0
+	maximum := 0.0
+	for _, row := range rows {
+		labelWidth = max(labelWidth, len(row.label))
+		if total := row.points[len(row.points)-1]; total > maximum {
+			maximum = total
+		}
+	}
+
+	totalWidth := len(formatPoints(maximum))
+	trackWidth := max(width-labelWidth-totalWidth-2, 1)
+
+	lines := make([]string, 0, len(rows))
+	for _, row := range rows {
+		last := int(math.Round(row.points[len(row.points)-1]))
+		total := fmt.Sprintf("P%d", last)
+		line := fmt.Sprintf(
+			"%-*s %s %*s",
+			labelWidth,
+			row.label,
+			chartStyle.Render(positionTrack(row.points, trackWidth)),
+			totalWidth,
+			total,
+		)
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// positionTrack renders a downsampled sequence of position characters, one
+// per sampled round.
+func positionTrack(positions []float64, width int) string {
+	if width < 1 || len(positions) == 0 {
+		return ""
+	}
+	if width > len(positions) {
+		width = len(positions)
+	}
+
+	var line strings.Builder
+	for column := 0; column < width; column++ {
+		index := column * len(positions) / width
+		line.WriteByte(posChar(int(math.Round(positions[index]))))
+	}
+	return line.String()
+}
+
 // visibleColumns estimates how many round columns fit the terminal width once
 // the label column and the four right-hand summary columns are reserved.
 func visibleColumns(width, labelWidth int) int {

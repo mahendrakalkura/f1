@@ -62,6 +62,55 @@ func TestSparkline(t *testing.T) {
 	}
 }
 
+func TestPosChar(t *testing.T) {
+	cases := []struct {
+		position int
+		want     byte
+	}{
+		{1, '1'}, {9, '9'}, {10, 'A'}, {11, 'B'}, {15, 'F'}, {16, '?'},
+	}
+	for _, c := range cases {
+		if got := posChar(c.position); got != c.want {
+			t.Errorf("posChar(%d) = %c, want %c", c.position, got, c.want)
+		}
+	}
+}
+
+func TestPositionTrack(t *testing.T) {
+	got := positionTrack([]float64{1, 2, 3, 10, 11}, 5)
+	if got != "123AB" {
+		t.Errorf("got %q, want %q", got, "123AB")
+	}
+	got = positionTrack([]float64{1, 3, 10}, 2)
+	if got != "13" {
+		t.Errorf("downsampled: got %q, want %q", got, "13")
+	}
+	if got := positionTrack(nil, 5); got != "" {
+		t.Errorf("empty input: got %q, want empty", got)
+	}
+}
+
+func TestRenderPositionChart(t *testing.T) {
+	rows := []chartRow{
+		{label: "Mercedes", points: []float64{1, 1, 2, 2, 3}},
+		{label: "Ferrari", points: []float64{2, 3, 1, 1, 1}},
+	}
+
+	out := renderPositionChart(rows, 40)
+	if !strings.Contains(out, "Mercedes") || !strings.Contains(out, "Ferrari") {
+		t.Errorf("missing labels:\n%s", out)
+	}
+	if !strings.Contains(out, "P3") || !strings.Contains(out, "P1") {
+		t.Errorf("missing final position:\n%s", out)
+	}
+}
+
+func TestRenderPositionChartEmpty(t *testing.T) {
+	if got := renderPositionChart(nil, 40); got != "No completed rounds yet." {
+		t.Errorf("got %q, want 'No completed rounds yet.'", got)
+	}
+}
+
 func TestVisibleColumns(t *testing.T) {
 	cases := []struct {
 		width      int

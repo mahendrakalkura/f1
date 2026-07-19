@@ -72,12 +72,13 @@ type raceResult struct {
 }
 
 type progression struct {
-	chart             []chartRow
-	chartConstructors []chartRow
-	constructors      []seriesRow
-	drivers           []seriesRow
-	raceLabels        []string
-	rounds            int
+	chart                     []chartRow
+	chartConstructorPositions []chartRow
+	chartConstructors         []chartRow
+	constructors              []seriesRow
+	drivers                   []seriesRow
+	raceLabels                []string
+	rounds                    int
 }
 
 type chartRow struct {
@@ -433,15 +434,38 @@ func buildProgression(
 		constructorSeries = append(constructorSeries, series)
 	}
 
+	constructorPositions := constructorPositionsByRound(roundConstructorStandings, completedRounds)
+
 	result := progression{
-		chart:             buildDriverChart(drivers, resultsByRound, sprintByRound, completedRounds),
-		chartConstructors: buildConstructorChart(constructors, constructorPoints, completedRounds),
-		constructors:      constructorSeries,
-		drivers:           driverSeries,
-		raceLabels:        labels,
-		rounds:            completedRounds,
+		chart:                     buildDriverChart(drivers, resultsByRound, sprintByRound, completedRounds),
+		chartConstructorPositions: buildConstructorPositionChart(constructors, constructorPositions, completedRounds),
+		chartConstructors:         buildConstructorChart(constructors, constructorPoints, completedRounds),
+		constructors:              constructorSeries,
+		drivers:                   driverSeries,
+		raceLabels:                labels,
+		rounds:                    completedRounds,
 	}
 	return result
+}
+
+// constructorPositionsByRound returns each constructor's championship
+// position (rank) after every completed round.
+func constructorPositionsByRound(responses []mrDataResponse, rounds int) []map[string]int {
+	perRound := make([]map[string]int, rounds)
+	for round := 1; round <= rounds; round++ {
+		perRound[round-1] = map[string]int{}
+		if round-1 >= len(responses) {
+			continue
+		}
+		lists := responses[round-1].MRData.StandingsTable.StandingsLists
+		if len(lists) == 0 {
+			continue
+		}
+		for _, standing := range lists[0].ConstructorStandings {
+			perRound[round-1][standing.Constructor.ConstructorID] = parseInt(standing.Position)
+		}
+	}
+	return perRound
 }
 
 // buildDriverChart derives each driver's cumulative championship points per
@@ -479,6 +503,24 @@ func buildConstructorChart(
 		points := make([]float64, rounds)
 		for round := 1; round <= rounds; round++ {
 			points[round-1] = perRound[round-1][constructor.id]
+		}
+		rows = append(rows, chartRow{label: constructor.name, points: points})
+	}
+	return rows
+}
+
+// buildConstructorPositionChart extracts each constructor's championship
+// position (rank) after every completed round, in standings order.
+func buildConstructorPositionChart(
+	constructors []constructorRow,
+	perRound []map[string]int,
+	rounds int,
+) []chartRow {
+	rows := []chartRow{}
+	for _, constructor := range constructors {
+		points := make([]float64, rounds)
+		for round := 1; round <= rounds; round++ {
+			points[round-1] = float64(perRound[round-1][constructor.id])
 		}
 		rows = append(rows, chartRow{label: constructor.name, points: points})
 	}
