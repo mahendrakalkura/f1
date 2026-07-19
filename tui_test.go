@@ -52,16 +52,16 @@ func TestProgLabelsWidth(t *testing.T) {
 
 func TestProgressionChartMode(t *testing.T) {
 	model := readyModel(t)
-	for range int(tabProgression) {
+	for range int(tabDrvProg) {
 		model = press(t, model, tea.KeyMsg{Type: tea.KeyTab})
 	}
-	if model.active != tabProgression {
-		t.Fatalf("got tab %v, want tabProgression", model.active)
+	if model.active != tabDrvProg {
+		t.Fatalf("got tab %v, want tabDrvProg", model.active)
 	}
 
 	model = press(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
-	if model.progMode != modeChart {
-		t.Fatalf("got mode %v, want modeChart", model.progMode)
+	if !model.progChart {
+		t.Fatal("p did not enable the chart")
 	}
 	if got := model.maxProgOffset(); got != 0 {
 		t.Errorf("chart mode maxProgOffset = %d, want 0", got)
@@ -69,13 +69,29 @@ func TestProgressionChartMode(t *testing.T) {
 
 	view := model.View()
 	if !strings.Contains(view, "Max Verstappen") {
-		t.Errorf("chart view missing driver:\n%s", view)
+		t.Errorf("driver chart view missing driver:\n%s", view)
+	}
+
+	model = press(t, model, tea.KeyMsg{Type: tea.KeyTab})
+	if model.active != tabConProg || model.progChart {
+		t.Fatalf("tab did not switch to constructor matrix, active=%v chart=%v", model.active, model.progChart)
+	}
+
+	model = press(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	view = model.View()
+	if !strings.Contains(view, "Red Bull") {
+		t.Errorf("constructor chart view missing team:\n%s", view)
+	}
+
+	model = press(t, model, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	if model.progChart {
+		t.Error("p should toggle the chart off")
 	}
 }
 
 func TestProgressionOffsetBounds(t *testing.T) {
 	model := readyModel(t)
-	for range int(tabProgression) {
+	for range int(tabDrvProg) {
 		model = press(t, model, tea.KeyMsg{Type: tea.KeyTab})
 	}
 
@@ -153,15 +169,15 @@ func TestTabCycling(t *testing.T) {
 	}
 
 	model = press(t, model, tea.KeyMsg{Type: tea.KeyShiftTab})
-	if model.active != tabProgression {
-		t.Errorf("shift+tab wrapped to %v, want tabProgression", model.active)
+	if model.active != tabConProg {
+		t.Errorf("shift+tab wrapped to %v, want tabConProg", model.active)
 	}
 
 	for range tab(len(tabTitles)) {
 		model = press(t, model, tea.KeyMsg{Type: tea.KeyTab})
 	}
-	if model.active != tabProgression {
-		t.Errorf("full cycle landed on %v, want tabProgression", model.active)
+	if model.active != tabConProg {
+		t.Errorf("full cycle landed on %v, want tabConProg", model.active)
 	}
 }
 

@@ -72,11 +72,12 @@ type raceResult struct {
 }
 
 type progression struct {
-	chart        []chartRow
-	constructors []seriesRow
-	drivers      []seriesRow
-	raceLabels   []string
-	rounds       int
+	chart             []chartRow
+	chartConstructors []chartRow
+	constructors      []seriesRow
+	drivers           []seriesRow
+	raceLabels        []string
+	rounds            int
 }
 
 type chartRow struct {
@@ -433,18 +434,19 @@ func buildProgression(
 	}
 
 	result := progression{
-		chart:        buildChart(drivers, resultsByRound, sprintByRound, completedRounds),
-		constructors: constructorSeries,
-		drivers:      driverSeries,
-		raceLabels:   labels,
-		rounds:       completedRounds,
+		chart:             buildDriverChart(drivers, resultsByRound, sprintByRound, completedRounds),
+		chartConstructors: buildConstructorChart(constructors, constructorPoints, completedRounds),
+		constructors:      constructorSeries,
+		drivers:           driverSeries,
+		raceLabels:        labels,
+		rounds:            completedRounds,
 	}
 	return result
 }
 
-// buildChart derives each driver's cumulative championship points per round
-// from race and sprint results, in standings order.
-func buildChart(
+// buildDriverChart derives each driver's cumulative championship points per
+// round from race and sprint results, in standings order.
+func buildDriverChart(
 	drivers []driverRow,
 	resultsByRound map[int]map[string]result,
 	sprintByRound map[int]map[string]result,
@@ -460,6 +462,25 @@ func buildChart(
 			points[round-1] = running
 		}
 		rows = append(rows, chartRow{label: driver.name, points: points})
+	}
+	return rows
+}
+
+// buildConstructorChart reads each constructor's cumulative standings points
+// per round. Constructor standings are already cumulative, so no running total
+// is needed.
+func buildConstructorChart(
+	constructors []constructorRow,
+	perRound []map[string]float64,
+	rounds int,
+) []chartRow {
+	rows := []chartRow{}
+	for _, constructor := range constructors {
+		points := make([]float64, rounds)
+		for round := 1; round <= rounds; round++ {
+			points[round-1] = perRound[round-1][constructor.id]
+		}
+		rows = append(rows, chartRow{label: constructor.name, points: points})
 	}
 	return rows
 }

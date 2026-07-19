@@ -17,7 +17,8 @@ const (
 	tabConstructors
 	tabRaces
 	tabSprints
-	tabProgression
+	tabDrvProg
+	tabConProg
 )
 
 type progMode int
@@ -25,14 +26,13 @@ type progMode int
 const (
 	modeDrivers progMode = iota
 	modeConstructors
-	modeChart
 )
 
 const chromeHeight = 6
 
 const raceRoundWidth = 5
 
-var tabTitles = []string{"Drivers", "Constructors", "Races", "Sprints", "Progression"}
+var tabTitles = []string{"Drivers", "Constructors", "Races", "Sprints", "Drv Prog", "Con Prog"}
 
 type appModel struct {
 	active           tab
@@ -40,6 +40,7 @@ type appModel struct {
 	data             *data
 	driversView      viewport.Model
 	height           int
+	progChart        bool
 	progMode         progMode
 	progOffset       int
 	progView         viewport.Model
@@ -108,11 +109,13 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "tab":
 		m.active = (m.active + 1) % tab(len(tabTitles))
+		m.syncProgMode()
 		m.syncFocus()
 		return m, nil
 
 	case "shift+tab":
 		m.active = (m.active + tab(len(tabTitles)) - 1) % tab(len(tabTitles))
+		m.syncProgMode()
 		m.syncFocus()
 		return m, nil
 	}
@@ -138,7 +141,7 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.sprints = list
 		return m, cmd
 
-	case tabProgression:
+	case tabDrvProg, tabConProg:
 		return m.handleProgressionKey(msg)
 	}
 
@@ -174,20 +177,8 @@ func handleRaceListKey(list raceList, msg tea.KeyMsg) (raceList, tea.Cmd) {
 
 func (m appModel) handleProgressionKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
-	case "d":
-		m.progMode = modeDrivers
-		m.progOffset = 0
-		m.refreshProgression()
-		return m, nil
-
-	case "c":
-		m.progMode = modeConstructors
-		m.progOffset = 0
-		m.refreshProgression()
-		return m, nil
-
 	case "p":
-		m.progMode = modeChart
+		m.progChart = !m.progChart
 		m.progOffset = 0
 		m.refreshProgression()
 		return m, nil
@@ -253,7 +244,7 @@ func (m appModel) body() string {
 	case tabSprints:
 		return m.sprints.body()
 
-	case tabProgression:
+	case tabDrvProg, tabConProg:
 		return fmt.Sprintf("%s\n%s", m.progressionHeader(), m.progView.View())
 	}
 
@@ -286,11 +277,12 @@ func raceMeta(race raceInfo) string {
 }
 
 func (m appModel) progressionHeader() string {
+	if m.progChart {
+		return helpStyle.Render("Cumulative points per round, scaled to the leader's total")
+	}
 	switch m.progMode {
 	case modeConstructors:
 		return helpStyle.Render("Cumulative points per round")
-	case modeChart:
-		return helpStyle.Render("Cumulative points per round, scaled to the leader's total")
 	}
 	return matrixLegend()
 }
@@ -303,8 +295,8 @@ func (m appModel) help() string {
 	case tabSprints:
 		return raceListHelp(m.sprints.selected)
 
-	case tabProgression:
-		return "d drivers | c constructors | p points | left/right scroll | up/down scroll | tab switch | q quit"
+	case tabDrvProg, tabConProg:
+		return "p points chart | left/right scroll | up/down scroll | tab switch | q quit"
 	}
 
 	return "up/down scroll | tab/shift+tab switch | q quit"
@@ -346,8 +338,12 @@ func (m *appModel) resizeRaceList(list *raceList) {
 }
 
 func (m *appModel) refreshProgression() {
-	if m.progMode == modeChart {
-		m.progView.SetContent(renderChart(m.data.progression.chart, m.width))
+	if m.progChart {
+		chart := m.data.progression.chart
+		if m.progMode == modeConstructors {
+			chart = m.data.progression.chartConstructors
+		}
+		m.progView.SetContent(renderChart(chart, m.width))
 		return
 	}
 
@@ -362,7 +358,7 @@ func (m *appModel) refreshProgression() {
 }
 
 func (m appModel) maxProgOffset() int {
-	if m.progMode == modeChart {
+	if m.progChart {
 		return 0
 	}
 
@@ -398,6 +394,17 @@ func (m *appModel) syncFocus() {
 	if m.active == tabSprints {
 		m.sprints.table.Focus()
 	}
+}
+
+// syncProgMode aligns the progression subject with the active tab.
+func (m *appModel) syncProgMode() {
+	m.progChart = false
+	m.progOffset = 0
+	if m.active == tabConProg {
+		m.progMode = modeConstructors
+		return
+	}
+	m.progMode = modeDrivers
 }
 
 // progLabelsWidth returns the combined width of the name column and the
