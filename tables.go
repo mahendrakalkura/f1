@@ -97,12 +97,19 @@ func renderResultsTable(race raceInfo) string {
 
 // renderProgressionTable draws the Wikipedia-style grid for the visible round
 // window using colored cells for finishing positions and right-aligned totals.
-func renderProgressionTable(series []seriesRow, labels []string, title string, colOffset, roundCols int) string {
+// A context column next to the name shows each driver's team or, in
+// constructor mode, each team's drivers stacked one per line.
+func renderProgressionTable(series []seriesRow, labels []string, mode progMode, colOffset, roundCols int) string {
 	if len(series) == 0 || len(labels) == 0 {
 		return "No completed rounds yet."
 	}
 
-	headers := []string{title}
+	nameTitle, detailTitle := "Driver", "Team"
+	if mode == modeConstructors {
+		nameTitle, detailTitle = "Constructor", "Drivers"
+	}
+
+	headers := []string{nameTitle, detailTitle}
 	for column := colOffset; column < colOffset+roundCols; column++ {
 		headers = append(headers, labels[column])
 	}
@@ -110,7 +117,12 @@ func renderProgressionTable(series []seriesRow, labels []string, title string, c
 
 	rows := make([][]string, 0, len(series))
 	for _, row := range series {
-		cells := []string{row.label}
+		detail := row.team
+		if mode == modeConstructors {
+			detail = strings.Join(row.drivers, "\n")
+		}
+
+		cells := []string{row.label, detail}
 		for column := colOffset; column < colOffset+roundCols; column++ {
 			cells = append(cells, row.cells[column].text)
 		}
@@ -143,8 +155,12 @@ func progressionStyle(series []seriesRow, colOffset, roundCols int) ltable.Style
 			return style.Foreground(lipgloss.Color("252"))
 		}
 
-		if col >= 1 && col <= roundCols {
-			cell := series[row].cells[colOffset+col-1]
+		if col == 1 {
+			return style.Foreground(lipgloss.Color("245"))
+		}
+
+		if col >= 2 && col <= roundCols+1 {
+			cell := series[row].cells[colOffset+col-2]
 			return categoryStyle(cell.category).Padding(0, 1)
 		}
 

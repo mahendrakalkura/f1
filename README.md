@@ -8,7 +8,7 @@ Terminal UI for the Formula 1 season: driver standings, constructor standings, e
 - Constructor standings with points, wins, poles, and fastest laps; each team's full driver names are listed one below the other in current-ranking order.
 - Races list showing the winning driver and constructor, the pole sitter, and the fastest-lap driver for every round; press enter for the full finishing order plus the date, circuit, and location.
 - Sprints list with the winning driver and constructor and the fastest-lap driver for every sprint round; press enter for the full sprint result.
-- Progression tab: a Wikipedia-style matrix of colour-coded finishing positions per round (drivers) or cumulative points per round (constructors), with running points, wins, poles, and fastest-lap totals. Press p for a per-driver cumulative points chart. Scroll the round columns with left and right.
+- Progression tab: a Wikipedia-style matrix of colour-coded finishing positions per round (drivers) or cumulative points per round (constructors), with running points, wins, poles, and fastest-lap totals. Drivers mode shows each driver's team; constructors mode lists each team's drivers. Press p for a per-driver cumulative points chart. Scroll the round columns with left and right.
 - Tables are rendered with the `lipgloss/table` library; all numeric columns are right aligned.
 - Parallel, cached downloads. The first run fetches every endpoint concurrently through a bounded worker pool; later runs read from the 24-hour cache and start instantly. When a download fails but a stale cache file exists, the stale file is served with a warning instead of aborting.
 

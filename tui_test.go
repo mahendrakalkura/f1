@@ -28,13 +28,25 @@ func press(t *testing.T, model appModel, msg tea.KeyMsg) appModel {
 	return app
 }
 
-func TestProgLabelWidth(t *testing.T) {
+func TestProgLabelsWidth(t *testing.T) {
 	model := fixtureData()
-	if got := progLabelWidth(model.progression.drivers); got != len("Max Verstappen") {
-		t.Errorf("got %d, want %d", got, len("Max Verstappen"))
+
+	got := progLabelsWidth(model.progression.drivers, modeDrivers)
+	want := len("Max Verstappen") + len("Red Bull")
+	if got != want {
+		t.Errorf("drivers mode: got %d, want %d", got, want)
 	}
-	if got := progLabelWidth(nil); got != len("Driver") {
-		t.Errorf("got %d, want %d", got, len("Driver"))
+
+	got = progLabelsWidth(model.progression.constructors, modeConstructors)
+	want = len("Constructor") + len("Max Verstappen")
+	if got != want {
+		t.Errorf("constructors mode: got %d, want %d", got, want)
+	}
+
+	got = progLabelsWidth(nil, modeDrivers)
+	want = len("Driver") + len("Team")
+	if got != want {
+		t.Errorf("empty series: got %d, want %d", got, want)
 	}
 }
 

@@ -25,8 +25,18 @@ func TestRenderDriversTable(t *testing.T) {
 
 func TestRenderProgressionTable(t *testing.T) {
 	model := fixtureData()
-	out := renderProgressionTable(model.progression.drivers, model.progression.raceLabels, "Driver", 0, 2)
-	for _, want := range []string{"BAH", "CHI", "Max Verstappen", "Pts"} {
+	out := renderProgressionTable(model.progression.drivers, model.progression.raceLabels, modeDrivers, 0, 2)
+	for _, want := range []string{"BAH", "CHI", "Max Verstappen", "Pts", "Team", "Red Bull", "McLaren"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestRenderProgressionTableConstructors(t *testing.T) {
+	model := fixtureData()
+	out := renderProgressionTable(model.progression.constructors, model.progression.raceLabels, modeConstructors, 0, 2)
+	for _, want := range []string{"Constructor", "Drivers", "Red Bull", "Max Verstappen", "Lando Norris"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("output missing %q:\n%s", want, out)
 		}
@@ -34,7 +44,7 @@ func TestRenderProgressionTable(t *testing.T) {
 }
 
 func TestRenderProgressionTableEmpty(t *testing.T) {
-	if got := renderProgressionTable(nil, nil, "Driver", 0, 0); got != "No completed rounds yet." {
+	if got := renderProgressionTable(nil, nil, modeDrivers, 0, 0); got != "No completed rounds yet." {
 		t.Errorf("got %q, want %q", got, "No completed rounds yet.")
 	}
 }

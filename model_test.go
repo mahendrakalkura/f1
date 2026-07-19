@@ -172,10 +172,16 @@ func TestBuildDataProgression(t *testing.T) {
 	if leader.cells[1].category != categorySecond || leader.cells[1].text != "2" {
 		t.Errorf("unexpected round two cell: %+v", leader.cells[1])
 	}
+	if leader.team != "Red Bull" {
+		t.Errorf("driver series missing team: %+v", leader)
+	}
 
 	constructors := model.progression.constructors[0]
 	if constructors.cells[0].text != "33" || constructors.cells[1].text != "51" {
 		t.Errorf("unexpected constructor cells: %+v", constructors.cells)
+	}
+	if len(constructors.drivers) != 1 || constructors.drivers[0] != "Max Verstappen" {
+		t.Errorf("constructor series missing drivers: %+v", constructors)
 	}
 }
 

@@ -353,17 +353,12 @@ func (m *appModel) refreshProgression() {
 
 	series := m.progressionSeries()
 	rounds := m.data.progression.rounds - m.progOffset
-	visible := visibleColumns(m.width, progLabelWidth(series))
+	visible := visibleColumns(m.width, progLabelsWidth(series, m.progMode))
 	if visible > rounds {
 		visible = rounds
 	}
 
-	title := "Driver"
-	if m.progMode == modeConstructors {
-		title = "Constructor"
-	}
-
-	m.progView.SetContent(renderProgressionTable(series, m.data.progression.raceLabels, title, m.progOffset, visible))
+	m.progView.SetContent(renderProgressionTable(series, m.data.progression.raceLabels, m.progMode, m.progOffset, visible))
 }
 
 func (m appModel) maxProgOffset() int {
@@ -371,7 +366,7 @@ func (m appModel) maxProgOffset() int {
 		return 0
 	}
 
-	visible := visibleColumns(m.width, progLabelWidth(m.progressionSeries()))
+	visible := visibleColumns(m.width, progLabelsWidth(m.progressionSeries(), m.progMode))
 	maximum := m.data.progression.rounds - visible
 	if maximum < 0 {
 		return 0
@@ -405,14 +400,27 @@ func (m *appModel) syncFocus() {
 	}
 }
 
-func progLabelWidth(series []seriesRow) int {
-	width := len("Driver")
-	for _, row := range series {
-		if len(row.label) > width {
-			width = len(row.label)
-		}
+// progLabelsWidth returns the combined width of the name column and the
+// context column (team for drivers, stacked driver names for constructors).
+func progLabelsWidth(series []seriesRow, mode progMode) int {
+	nameWidth := len("Driver")
+	detailWidth := len("Team")
+	if mode == modeConstructors {
+		nameWidth = len("Constructor")
+		detailWidth = len("Drivers")
 	}
-	return width
+
+	for _, row := range series {
+		nameWidth = max(nameWidth, len(row.label))
+		if mode == modeConstructors {
+			for _, driver := range row.drivers {
+				detailWidth = max(detailWidth, len(driver))
+			}
+			continue
+		}
+		detailWidth = max(detailWidth, len(row.team))
+	}
+	return nameWidth + detailWidth
 }
 
 func newRacesTable(races []raceInfo) table.Model {

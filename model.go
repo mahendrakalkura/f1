@@ -86,9 +86,11 @@ type chartRow struct {
 
 type seriesRow struct {
 	cells       []matrixCell
+	drivers     []string
 	fastestLaps int
 	label       string
 	poles       int
+	team        string
 	total       float64
 	wins        int
 }
@@ -403,6 +405,7 @@ func buildProgression(
 			fastestLaps: row.fastestLaps,
 			label:       row.name,
 			poles:       row.poles,
+			team:        row.team,
 			total:       row.points,
 			wins:        row.wins,
 		}
@@ -419,6 +422,7 @@ func buildProgression(
 
 		series := seriesRow{
 			cells:       cells,
+			drivers:     row.drivers,
 			fastestLaps: row.fastestLaps,
 			label:       row.name,
 			poles:       row.poles,
