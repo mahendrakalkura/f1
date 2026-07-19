@@ -32,7 +32,7 @@ const chromeHeight = 6
 
 const raceRoundWidth = 5
 
-var tabTitles = []string{"Drivers", "Constructors", "Races", "Sprints", "Drv Prog", "Con Prog"}
+var tabTitles = []string{"Drivers", "Constructors", "Races", "Sprints", "Drivers Progression", "Constructors Progression"}
 
 type appModel struct {
 	active           tab
@@ -396,15 +396,17 @@ func (m *appModel) syncFocus() {
 	}
 }
 
-// syncProgMode aligns the progression subject with the active tab.
+// syncProgMode aligns the progression subject with the active tab and
+// refreshes the viewport so the correct matrix or chart renders immediately.
 func (m *appModel) syncProgMode() {
 	m.progChart = false
 	m.progOffset = 0
 	if m.active == tabConProg {
 		m.progMode = modeConstructors
-		return
+	} else {
+		m.progMode = modeDrivers
 	}
-	m.progMode = modeDrivers
+	m.refreshProgression()
 }
 
 // progLabelsWidth returns the combined width of the name column and the
